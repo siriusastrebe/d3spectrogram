@@ -3,8 +3,10 @@
 <head>
 	<meta name="viewport" content="width=device-width,initial-scale=1">
 	<title>Audio Spectrogram</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.5.0/d3.js"></script>
 	<script>
 // https://webaudiodemos.appspot.com/AudioRecorder/index.html
+
 /* Copyright 2013 Chris Wilson
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,62 +25,152 @@
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 
 var audioContext = new AudioContext();
-var analyserContext
+var svg
 
-var canvasWidth, canvasHeight;
+var svgWidth, svgHeight;
 var analyserContext = null;
 var rafID = null;
+var area
+var curve
+var ghosts = []
+var ghostCountdown = 0
 
 function updateAnalysers(time) {
 
-    if (!analyserContext) {
-        var canvas = document.getElementById("analyser");
-        canvasWidth = canvas.width;
-        canvasHeight = canvas.height;
-        analyserContext = canvas.getContext('2d');
+    if (!svg) {
+        svg = d3.select('#analyser');
+        svg.style('background-color', 'black')
+        svgWidth = 1024;
+        svgHeight = 300;
+
+        var defs = svg.append('defs')
+
+        var gradient = defs.append('linearGradient')
+            .attr('id', 'gradient') 
+            .attr('x1', '0%') 
+            .attr('x2', '100%') 
+            .attr('y1', '0%') 
+            .attr('y2', '0%') 
+
+        gradient.append('stop')
+            .attr('offset', '0%')
+            .attr('stop-color', 'red')
+
+        gradient.append('stop')
+            .attr('offset', '100%')
+            .attr('stop-color', 'green')
+
+        curve = svg.append('path')
+            .attr('fill', 'url(#gradient)')
+            .attr('stroke', 'white')
+            .attr('stroke-width', 1);
+
+        line = d3.line()
+            .x(function (d, i) { return i * SPACING; })
+            .y(function (d, i) { return svgHeight - d; })
+            .curve(d3.curveStepAfter);
+
+        area = d3.area()
+            .x(function (d, i) { return i * SPACING; })
+            .y0(function (d, i) { return svgHeight - d; })
+            .y1(function (d, i) { return svgHeight; })
+            .curve(d3.curveStepAfter);
     }
 
     // analyzer draw code here
     {
         var SPACING = 3;
-        var BAR_WIDTH = 1;
-        var numBars = Math.round(canvasWidth / SPACING);
-        var freqByteData = new Uint8Array(analyserNode.frequencyBinCount);
+        var BAR_WIDTH = 2;
+        var numBars = Math.round(svgWidth / SPACING);
+        var totalCount = analyserNode.frequencyBinCount
+        var freqByteData = new Uint8Array(totalCount);
 
         analyserNode.getByteFrequencyData(freqByteData); 
 
-        analyserContext.clearRect(0, 0, canvasWidth, canvasHeight);
-        analyserContext.fillStyle = '#F6D565';
-        analyserContext.lineCap = 'round';
-        var multiplier = analyserNode.frequencyBinCount / numBars;
+        var multiplier = Math.floor(totalCount / numBars);
 
         // Draw rectangle for each frequency bin.
-        for (var i = 0; i < numBars; ++i) {
-            var magnitude = 0;
-            var offset = Math.floor( i * multiplier );
-            // gotta sum/average the block, or we miss narrow-bandwidth spikes
-            for (var j = 0; j< multiplier; j++)
-                magnitude += freqByteData[offset + j];
-            magnitude = magnitude / multiplier;
-            var magnitude2 = freqByteData[i * multiplier];
-            analyserContext.fillStyle = "hsl( " + Math.round((i*360)/numBars) + ", 100%, 50%)";
-            analyserContext.fillRect(i * SPACING, canvasHeight, BAR_WIDTH, -magnitude);
+        var data = []
+        var magnitude = 0;
+        var j = 0
+        for (var i = 0; i < totalCount; ++i) {
+            var left = i < totalCount / 3
+            var right = i > totalCount * 2 / 3
+            var modifier = (left ? -1 : right ? 1 : 0)
+
+            j++
+            if (freqByteData[i] > magnitude) {
+              magnitude = freqByteData[i];
+            }
+
+            if (j >= multiplier + modifier) {
+                data.push(magnitude / (multiplier + modifier))
+                magnitude = 0
+                j = 0
+            }
         }
+
+        curve
+            .datum(data)
+            .attr('d', area)
+
+        if (ghostCountdown === 0) {
+            ghostCountdown = 12
+
+            var ghost = svg.append('path')
+                .attr('fill', 'black')
+                .attr('stroke', 'url(#gradient)')
+                .attr('stroke-width', 2)
+
+            ghost
+                .datum(data)
+                .attr('d', line)
+                .attr('opacity', 1)
+
+            ghost
+                .transition()
+                .duration(2000)
+                .ease(d3.easeCubicOut)
+                .attr('transform', 'translate(256,-50)scale(0.5)')
+                .attr('opacity', 0.5)
+                .on('end', function (a, b) { 
+                    d3.select(this).remove()
+                })
+
+            curve.moveToFront()
+        } else {
+            ghostCountdown--
+        }
+
+0
+/*
+        var rects = svg.selectAll('rect')
+          .data(data)
+
+        rects
+          .enter()
+          .append('rect')
+          .attr('x', function (a, i) { return i * SPACING })
+          .attr('width', BAR_WIDTH + 'px')
+          .attr('fill', function (a, i) { return "hsl( " + Math.round((i*360)/numBars) + ", 100%, 50%)";
+
+        rects
+          .attr('height', function (a, i) { return a + 'px' })
+          .attr('y', function (a, i) { return (svgHeight -10 - a) + 'px' })
+*/
     }
-    
+
     rafID = window.requestAnimationFrame( updateAnalysers );
 }
 
 function gotStream(stream) {
     var audioInput = null,
         inputPoint = null,
-        realAudioInput = null;
 
     inputPoint = audioContext.createGain();
 
     // Create an AudioNode from the stream.
-    realAudioInput = audioContext.createMediaStreamSource(stream);
-    audioInput = realAudioInput;
+    audioInput = audioContext.createMediaStreamSource(stream);
     audioInput.connect(inputPoint);
 
     analyserNode = audioContext.createAnalyser();
@@ -119,52 +211,41 @@ function initAudio() {
 }
 
 window.addEventListener('load', initAudio );
+
+
+// https://github.com/wbkd/d3-extended
+d3.selection.prototype.moveToFront = function() {  
+    return this.each(function(){
+        this.parentNode.appendChild(this);
+    });
+};
+d3.selection.prototype.moveToBack = function() {  
+    return this.each(function() { 
+        var firstChild = this.parentNode.firstChild; 
+        if (firstChild) { 
+            this.parentNode.insertBefore(this, firstChild); 
+        } 
+    });
+};
+
+
   </script>
 	<style>
-	html { overflow: hidden; }
-	body { 
-		font: 14pt Arial, sans-serif; 
-		background: lightgrey;
-		display: flex;
-		flex-direction: column;
-		height: 100vh;
-		width: 100%;
-		margin: 0 0;
-	}
-	canvas { 
-		display: inline-block; 
-		background: #202020; 
-		width: 95%;
-		height: 45%;
-		box-shadow: 0px 0px 10px blue;
-	}
-	#controls {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-around;
-		height: 20%;
-		width: 100%;
-	}
-	#viz {
-		height: 80%;
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		justify-content: space-around;
-		align-items: center;
-	}
-	@media (orientation: landscape) {
-		body { flex-direction: row;}
-		#controls { flex-direction: column; height: 100%; width: 10%;}
-		#viz { height: 100%; width: 90%;}
-	}
-
+  body {
+    background-color: black;
+  }
+  svg {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100vw;
+  }
 	</style>
 </head>
 <body>
 	<div id="viz">
-		<canvas id="analyser" width="1024" height="500"></canvas>
+    <svg id="analyser" viewBox="0 0 1024 300">
+
 	</div>
 </body>
 </html>
