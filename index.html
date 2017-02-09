@@ -21,6 +21,8 @@
    limitations under the License.
 */
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
+var audioInput = null;
+var inputPoint = null;
 var audioContext = new AudioContext();
 var svg
 var svgWidth, svgHeight;
@@ -31,6 +33,7 @@ var curve
 var ghosts = []
 var ghostCountdown = 0
 function updateAnalysers(time) {
+    console.log('runnin loop')
     if (!svg) {
         svg = d3.select('#analyser');
         svg.style('background-color', 'black')
@@ -140,8 +143,6 @@ function updateAnalysers(time) {
     rafID = window.requestAnimationFrame( updateAnalysers );
 }
 function gotStream(stream) {
-    var audioInput = null,
-        inputPoint = null,
     inputPoint = audioContext.createGain();
     // Create an AudioNode from the stream.
     audioInput = audioContext.createMediaStreamSource(stream);
