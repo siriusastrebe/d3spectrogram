@@ -40,7 +40,6 @@ var curve
 var ghosts = []
 var ghostCountdown = 0
 function updateAnalysers(time) {
-    console.log('runnin loop')
     if (!svg) {
         svg = d3.select('#analyser');
         svg.style('background-color', 'black')
@@ -110,7 +109,8 @@ function updateAnalysers(time) {
             .datum(data)
             .attr('d', area)
         if (ghostCountdown === 0) {
-            ghostCountdown = window.sample_rate
+console.log(window.settings)
+            ghostCountdown = window.settings.sample_rate
             var ghost = svg.append('path')
                 .attr('fill', 'black')
                 .attr('stroke', 'url(#gradient)')
