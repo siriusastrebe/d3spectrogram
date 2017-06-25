@@ -116,7 +116,7 @@ function updateAnalysers(time) {
                 .transition()
                 .duration(2000)
                 .ease(d3.easeCubicOut)
-                .attr('transform', 'translate(512,-100)scale(0)')
+                .attr('transform', 'translate(512,100)scale(0)')
                 .attr('opacity', 0.5)
                 .on('end', function (a, b) { 
                     d3.select(this).remove()
