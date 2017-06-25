@@ -20,6 +20,13 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+		
+window.settings = {
+  translateX: 256,
+  translateY: -50,
+  scale: 0.5,
+  sample_rate: 8
+}
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 var audioInput = null;
 var inputPoint = null;
@@ -103,7 +110,7 @@ function updateAnalysers(time) {
             .datum(data)
             .attr('d', area)
         if (ghostCountdown === 0) {
-            ghostCountdown = 4
+            ghostCountdown = window.sample_rate
             var ghost = svg.append('path')
                 .attr('fill', 'black')
                 .attr('stroke', 'url(#gradient)')
@@ -116,7 +123,7 @@ function updateAnalysers(time) {
                 .transition()
                 .duration(2000)
                 .ease(d3.easeCubicOut)
-                .attr('transform', 'translate(512,100)scale(0)')
+                .attr('transform', 'translate(' + window.settings.translateX + ',' + window.settings.translateY + ')scale(' + window.settings.scale + ')')
                 .attr('opacity', 0.5)
                 .on('end', function (a, b) { 
                     d3.select(this).remove()
