@@ -103,7 +103,7 @@ function updateAnalysers(time) {
             .datum(data)
             .attr('d', area)
         if (ghostCountdown === 0) {
-            ghostCountdown = 12
+            ghostCountdown = 4
             var ghost = svg.append('path')
                 .attr('fill', 'black')
                 .attr('stroke', 'url(#gradient)')
@@ -116,7 +116,7 @@ function updateAnalysers(time) {
                 .transition()
                 .duration(2000)
                 .ease(d3.easeCubicOut)
-                .attr('transform', 'translate(256,-50)scale(0.5)')
+                .attr('transform', 'translate(512,-50)scale(0)')
                 .attr('opacity', 0.5)
                 .on('end', function (a, b) { 
                     d3.select(this).remove()
