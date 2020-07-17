@@ -1,185 +1,13 @@
 <!doctype html>
 <html>
 <head>
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+
 <title>Audio Spectrogram</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.5.0/d3.js"></script>
-<script>
-// Visualization by siriusastrebe@gmail.com
-		
-window.settings = {
-  translateX: '512',
-  translateY: '150',
-  scale: 0,
-  sample_rate: 8
-}
-window.AudioContext = window.AudioContext || window.webkitAudioContext;
-var audioInput = null;
-var inputPoint = null;
-var audioContext = new AudioContext();
-var svg
-var svgWidth, svgHeight;
-var analyserContext = null;
-var rafID = null;
-var area
-var curve
-var ghosts = []
-var ghostCountdown = 0
-function updateAnalysers(time) {
-    if (!svg) {
-        svg = d3.select('#analyser');
-        svg.style('background-color', 'black')
-        svgWidth = 1024;
-        svgHeight = 300;
-        var defs = svg.append('defs')
-        var gradient = defs.append('linearGradient')
-            .attr('id', 'gradient') 
-            .attr('x1', '0%') 
-            .attr('x2', '100%') 
-            .attr('y1', '0%') 
-            .attr('y2', '0%') 
-        gradient.append('stop')
-            .attr('offset', '0%')
-            .attr('stop-color', 'red')
-        gradient.append('stop')
-            .attr('offset', '25%')
-            .attr('stop-color', 'yellow')
-        gradient.append('stop')
-            .attr('offset', '50%')
-            .attr('stop-color', 'green')
-        gradient.append('stop')
-            .attr('offset', '75%')
-            .attr('stop-color', 'blue')
-        gradient.append('stop')
-            .attr('offset', '100%')
-            .attr('stop-color', 'violet')
-        curve = svg.append('path')
-            .attr('fill', 'url(#gradient)')
-            .attr('stroke', 'white')
-            .attr('stroke-width', 0.5);
-        line = d3.line()
-            .x(function (d, i) { return i * SPACING; })
-            .y(function (d, i) { return svgHeight - d; })
-            .curve(d3.curveStepAfter);
-        area = d3.area()
-            .x(function (d, i) { return i * SPACING; })
-            .y0(function (d, i) { return svgHeight - d; })
-            .y1(function (d, i) { return svgHeight; })
-            .curve(d3.curveStepAfter);
-        console.log('initializing stuff.')
-    }
-    // analyzer draw code here
-    {
-        var SPACING = 3;
-        var BAR_WIDTH = 2;
-        var numBars = Math.round(svgWidth / SPACING);
-        var totalCount = analyserNode.frequencyBinCount
-        var freqByteData = new Uint8Array(totalCount);
-        analyserNode.getByteFrequencyData(freqByteData); 
-        var multiplier = Math.floor(totalCount / numBars);
-        // Draw rectangle for each frequency bin.
-        var data = []
-        var magnitude = 0;
-        var j = 0
-        for (var i = 0; i < totalCount; ++i) {
-            j++
-            magnitude += freqByteData[i]/ 3;
-              if (j > 2) {
-                data.push(magnitude)
-                magnitude = 0
-                j = 0
-            }
-        }
-        curve
-            .datum(data)
-            .attr('d', area)
-        if (ghostCountdown === 0) {
-console.log(window.settings)
-            ghostCountdown = window.settings.sample_rate
-            var ghost = svg.append('path')
-                .attr('fill', 'black')
-                .attr('stroke', 'url(#gradient)')
-                .attr('stroke-width', 2)
-            ghost
-                .datum(data)
-                .attr('d', line)
-                .attr('opacity', 1)
-            ghost
-                .transition()
-                .duration(2000)
-                .ease(d3.easeCubicOut)
-                .attr('transform', 'translate(' + window.settings.translateX + ',' + window.settings.translateY + ')scale(' + window.settings.scale + ')')
-                .attr('opacity', 0.5)
-                .on('end', function (a, b) { 
-                    d3.select(this).remove()
-                })
-            curve.moveToFront()
-        } else {
-            ghostCountdown--
-        }
-    }
-    rafID = window.requestAnimationFrame( updateAnalysers );
-}
-function gotStream(stream) {
-    inputPoint = audioContext.createGain();
-    // Create an AudioNode from the stream.
-    audioInput = audioContext.createMediaStreamSource(stream);
-    audioInput.connect(inputPoint);
-    analyserNode = audioContext.createAnalyser();
-    analyserNode.fftSize = 2048;
-    inputPoint.connect( analyserNode );
-    zeroGain = audioContext.createGain();
-    zeroGain.gain.value = 0.0;
-    inputPoint.connect( zeroGain );
-    zeroGain.connect( audioContext.destination );
-    updateAnalysers();
-}
-function initAudio() {
-        if (!navigator.getUserMedia) {
-            navigator.getUserMedia = ( navigator.getUserMedia ||
-                       navigator.webkitGetUserMedia ||
-                       navigator.mozGetUserMedia ||
-                       navigator.msGetUserMedia);
-	}
-        if (!navigator.cancelAnimationFrame)
-            navigator.cancelAnimationFrame = navigator.webkitCancelAnimationFrame || navigator.mozCancelAnimationFrame;
-        if (!navigator.requestAnimationFrame)
-            navigator.requestAnimationFrame = navigator.webkitRequestAnimationFrame || navigator.mozRequestAnimationFrame;
-	if (!navigator.getUserMedia) {
-		document.getElementById('viz').innerHTML = "Your browser does not support microphone functionality on web pages.";
-	}
-    navigator.getUserMedia(
-        {
-            "audio": {
-                "mandatory": {
-                    "googEchoCancellation": "false",
-                    "googAutoGainControl": "false",
-                    "googNoiseSuppression": "false",
-                    "googHighpassFilter": "false"
-                },
-                "optional": []
-            },
-        }, gotStream, function(e) {
-            alert('Error getting audio');
-            console.log(e);
-        });
-}
-window.addEventListener('load', initAudio );
-// https://github.com/wbkd/d3-extended
-d3.selection.prototype.moveToFront = function() {  
-    return this.each(function(){
-        this.parentNode.appendChild(this);
-    });
-};
-d3.selection.prototype.moveToBack = function() {  
-    return this.each(function() { 
-        var firstChild = this.parentNode.firstChild; 
-        if (firstChild) { 
-            this.parentNode.insertBefore(this, firstChild); 
-        } 
-    });
-};
-</script>
+<script src="./d3.v4.js"></script>
+
 <style>
   body {
     background-color: black;
@@ -190,11 +18,187 @@ d3.selection.prototype.moveToBack = function() {
     transform: translateY(-50%);
     width: 100vw;
   }
+  .hugebutton {
+    width: 80%;
+    background-color: #eee;
+  }
+  .hugebutton, #error {
+    left: 10%;
+    min-height: 300px;
+    position: absolute;
+    z-index: 2;
+    top: 40%;
+    transform: translateY(-50%);
+    border-radius: 8px;
+  }
+
+  #error{
+    width: 70%;
+    background: white;
+    justify-content: center;
+    align-items: center;
+    padding: 5%;
+  }
 </style>
 </head>
 <body>
-    <div id="viz">
+    <button class="hugebutton" id="startAudio" onclick="startAudio()">Enable Microphone Input</button>
+
+    <div id="error" style="display: none"></div>
+    <div>
         <svg id="analyser" viewBox="0 0 1024 300">
     </div>
 </body>
+
+<script>
+var analyser;
+var settings = {
+  translateX: '512',
+  translateY: '150',
+  scale: 0,
+  sample_rate: 8
+}
+
+async function startAudio() {
+  document.getElementById('startAudio').style.display = 'none';
+
+  // with help from https://mdn.github.io/voice-change-o-matic/  https://mdn.github.io/voice-change-o-matic/scripts/app.js
+  var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  var distortion = audioCtx.createWaveShaper();
+  var gainNode = audioCtx.createGain();
+  //var biquadFilter = audioCtx.createBiquadFilter();
+  //var convolver = audioCtx.createConvolver();
+
+  analyser = audioCtx.createAnalyser();
+  analyser.minDecibels = -90;
+  analyser.maxDecibels = -10;
+  analyser.smoothingTimeConstant = 0.85;
+
+  if (navigator.mediaDevices.getUserMedia) {
+    var constraints = {audio: true}
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia (constraints)
+      var source = audioCtx.createMediaStreamSource(stream);
+      source.connect(gainNode);
+      //distortion.connect(biquadFilter);
+      //biquadFilter.connect(gainNode);
+      //convolver.connect(gainNode);
+      gainNode.connect(analyser);
+
+      // This line will playback the input to the speakers
+      // analyser.connect(audioCtx.destination);
+
+      draw();
+    } catch (e) {
+      console.log('zzz', e);
+      displayError(e);
+    }
+  } else {
+    displayError(e);
+  }
+}
+function displayError(e) {
+  document.getElementById('error').innerHTML = 'Unable to access microphone: ' + e;
+  document.getElementById('error').style.display = 'flex';
+}
+
+var svg, area, curve;
+var svgWidth = 1024;
+var svgHeight = 300;
+var analyserContext = null;
+var rafID = null;
+var ghosts = []
+var ghostCountdown = 0
+
+function draw() {
+  analyser.fftSize = 256;
+  var bufferLengthAlt = analyser.frequencyBinCount;
+  var dataArrayAlt = new Uint8Array(bufferLengthAlt);
+  analyser.getByteFrequencyData(dataArrayAlt);
+
+  var SPACING = 1024 / bufferLengthAlt;
+  var numBars = Math.round(svgWidth / SPACING);
+
+  if (!svg) {
+     svg = d3.select('#analyser');
+     svg.style('background-color', 'black')
+     var defs = svg.append('defs')
+     var gradient = defs.append('linearGradient')
+         .attr('id', 'gradient')
+         .attr('x1', '0%')
+         .attr('x2', '100%')
+         .attr('y1', '0%')
+         .attr('y2', '0%')
+     gradient.append('stop')
+         .attr('offset', '0%')
+         .attr('stop-color', 'red')
+     gradient.append('stop')
+         .attr('offset', '25%')
+         .attr('stop-color', 'yellow')
+     gradient.append('stop')
+         .attr('offset', '50%')
+         .attr('stop-color', 'green')
+     gradient.append('stop')
+         .attr('offset', '75%')
+         .attr('stop-color', 'blue')
+     gradient.append('stop')
+         .attr('offset', '100%')
+         .attr('stop-color', 'violet')
+     curve = svg.append('path')
+         .attr('fill', 'url(#gradient)')
+         .attr('stroke', 'white')
+         .attr('stroke-width', 0.5);
+     line = d3.line()
+         .x(function (d, i) { return i * SPACING; })
+         .y(function (d, i) { return svgHeight - d; })
+         .curve(d3.curveStepAfter);
+     area = d3.area()
+         .x(function (d, i) { return i * SPACING; })
+         .y0(function (d, i) { return svgHeight - d; })
+         .y1(function (d, i) { return svgHeight; })
+         .curve(d3.curveStepAfter);
+     console.log('initializing stuff.')
+  }
+
+  console.log(dataArrayAlt);
+
+  curve
+      .datum(dataArrayAlt)
+      .attr('d', area)
+
+  if (ghostCountdown === 0) {
+    ghostCountdown = settings.sample_rate;
+    var ghost = svg.append('path')
+        .attr('fill', 'black')
+        .attr('stroke', 'url(#gradient)')
+        .attr('stroke-width', 2)
+    ghost
+        .datum(dataArrayAlt)
+        .attr('d', line)
+        .attr('opacity', 1)
+    ghost
+        .transition()
+        .duration(2000)
+        .ease(d3.easeCubicOut)
+        .attr('transform', 'translate(' + settings.translateX + ',' + settings.translateY + ')scale(' + settings.scale + ')')
+        .attr('opacity', 0.5)
+        .on('end', function (a, b) {
+            d3.select(this).remove()
+        })
+    curve.moveToFront();
+  } else {
+      ghostCountdown--
+  }
+  rafID = window.requestAnimationFrame( draw );
+}
+
+d3.selection.prototype.moveToFront = function() {
+    return this.each(function(){
+        this.parentNode.appendChild(this);
+    });
+};
+
+</script>
+
 </html>
