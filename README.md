@@ -1,3 +1,3 @@
 # d3spectrogram
 
-https://cdn.rawgit.com/siriusastrebe/d3spectrogram/53b0c90/index.html
+https://htmlpreview.github.io/?https://github.com/siriusastrebe/d3spectrogram/blob/master/index.html
